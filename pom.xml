@@ -5,15 +5,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.fadihania</groupId>
-    <artifactId>gb4ecore</artifactId>
+    <artifactId>gh4ecore</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
-    <name>gb4ecore</name>
+    <name>gh4ecore</name>
     <description>Compile Ecore models from GitHub repositories for Model-Driven Engineering research.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
+        <junit.version>5.13.4</junit.version>
     </properties>
 
     <dependencies>
@@ -21,6 +22,12 @@
             <groupId>org.kohsuke</groupId>
             <artifactId>github-api</artifactId>
             <version>2.0-rc.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -33,6 +40,11 @@
                 <configuration>
                     <mainClass>com.fadihania.App</mainClass>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
             </plugin>
         </plugins>
     </build>
