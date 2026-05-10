@@ -26,7 +26,7 @@ record SearchSizeRange(long start, long end) {
     }
 
     String query() {
-        return "ecore extension:ecore size:" + start + ".." + end;
+        return "extension:ecore size:" + start + ".." + end;
     }
 
     static SearchRangeAction actionFor(int totalCount, SearchSizeRange range) {

@@ -44,7 +44,7 @@ class SearchSizeRangeTest {
     @Test
     void buildsGitHubCodeSearchQuery() {
         assertEquals(
-                "ecore extension:ecore size:10241..20480",
+                "extension:ecore size:10241..20480",
                 new SearchSizeRange(10241, 20480).query());
     }
 

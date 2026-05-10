@@ -150,18 +150,25 @@ final class GitHubEcoreCollector {
                 logger.info("Skipping excluded repository: " + repositoryName);
                 continue;
             }
-            if (!inspectedRepositories.add(repositoryName)) {
-                stats.recordSkippedRepository();
-                logger.info("Skipping already inspected repository in this run: " + repositoryName);
-                continue;
-            }
 
             GHRepository repository = resolveRepository(repositoryName);
             if (repository == null) {
                 stats.recordSkippedRepository();
                 continue;
             }
+            if (processSearchResultCandidate(content, repository, catalog, stats)) {
+                runState.accepted++;
+            }
+            if (limitReached(runState.accepted)) {
+                runState.stoppedByLimit = true;
+                break;
+            }
             RepositoryInspectionResult result;
+            if (!inspectedRepositories.add(repositoryName)) {
+                stats.recordSkippedRepository();
+                logger.info("Skipping already inspected repository tree in this run: " + repositoryName);
+                continue;
+            }
             try {
                 result = inspectRepository(
                         repository,
@@ -188,6 +195,56 @@ final class GitHubEcoreCollector {
         CollectorStats.Snapshot bucketStats = stats.snapshot().deltaFrom(bucketStartStats);
         logger.info("Finished bucket: " + query + " | " + bucketStats.formatSummary());
         statsLog.bucketFinished(query, bucketStats);
+    }
+
+    private boolean processSearchResultCandidate(
+            GHContent content,
+            GHRepository repository,
+            CsvCatalog catalog,
+            CollectorStats stats
+    ) throws IOException {
+        String path = content.getPath();
+        if (path == null || !path.toLowerCase().endsWith(".ecore")) {
+            return false;
+        }
+
+        String fileUrl = content.getHtmlUrl();
+        if (catalog.containsFileUrl(fileUrl)) {
+            logger.info("Skipping already recorded search result file: " + fileUrl);
+            return false;
+        }
+        if (content.getSize() < config.minSizeBytes()) {
+            logger.info("Skipping small search result file: " + path + " (" + content.getSize() + " bytes)");
+            return false;
+        }
+
+        logger.info("Inspecting search result candidate " + path);
+        int totalCommits;
+        try {
+            totalCommits = countCommits(repository, path);
+        } catch (IOException | RuntimeException e) {
+            logger.warn("Skipping search result candidate after commit count failed for "
+                    + path + ": " + e.getMessage());
+            return false;
+        }
+        if (totalCommits < config.minCommits()) {
+            logger.info("Skipping search result candidate " + path + ": " + totalCommits
+                    + " file commit(s), minimum required is " + config.minCommits() + ".");
+            return false;
+        }
+
+        ModelRecord record = new ModelRecord(
+                content.getName(),
+                repository.getFullName(),
+                repository.getHtmlUrl().toString(),
+                fileUrl,
+                content.getSize(),
+                totalCommits);
+        catalog.append(record);
+        stats.recordNewlyAcceptedModelFile();
+        logger.info("Recorded matching search result model " + path + " from "
+                + repository.getFullName() + " (" + totalCommits + " total file commits).");
+        return true;
     }
 
     private RepositoryInspectionResult inspectRepository(

@@ -39,7 +39,7 @@ class StatsLogTest {
         stats.recordRepositoryOutcome(summary);
 
         try (StatsLog log = StatsLog.open(tempDir)) {
-            log.bucketStarted("ecore extension:ecore size:10241..20480", 10241, 20480);
+            log.bucketStarted("extension:ecore size:10241..20480", 10241, 20480);
             log.bucketSearchReported(1000, true);
             log.rangeSplit(
                     new SearchSizeRange(10241, 20480),
@@ -47,7 +47,7 @@ class StatsLogTest {
                     new SearchSizeRange(15361, 20480),
                     1000);
             log.rangeCannotSplit(new SearchSizeRange(10241, 10241), 1000);
-            log.bucketFinished("ecore extension:ecore size:10241..20480", stats.snapshot());
+            log.bucketFinished("extension:ecore size:10241..20480", stats.snapshot());
             log.runFinished(stats, false);
         }
 

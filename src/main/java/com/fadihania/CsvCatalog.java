@@ -15,10 +15,12 @@ final class CsvCatalog {
 
     private final Path csvFile;
     private final Set<String> existingFileUrls;
+    private final Set<GitHubFileKey> existingFileKeys;
 
-    private CsvCatalog(Path csvFile, Set<String> existingFileUrls) {
+    private CsvCatalog(Path csvFile, Set<String> existingFileUrls, Set<GitHubFileKey> existingFileKeys) {
         this.csvFile = csvFile;
         this.existingFileUrls = existingFileUrls;
+        this.existingFileKeys = existingFileKeys;
     }
 
     static CsvCatalog open(Path outDirectory) throws IOException {
@@ -26,22 +28,26 @@ final class CsvCatalog {
         Path csv = outDirectory.resolve("ecore-models.csv");
         if (Files.notExists(csv)) {
             Files.writeString(csv, HEADER + System.lineSeparator(), StandardCharsets.UTF_8);
-            return new CsvCatalog(csv, new HashSet<>());
+            return new CsvCatalog(csv, new HashSet<>(), new HashSet<>());
         }
 
         Set<String> urls = new HashSet<>();
+        Set<GitHubFileKey> keys = new HashSet<>();
         List<String> lines = Files.readAllLines(csv, StandardCharsets.UTF_8);
         for (int i = 1; i < lines.size(); i++) {
             List<String> fields = parseCsvLine(lines.get(i));
             if (fields.size() >= 4) {
-                urls.add(fields.get(3));
+                addExistingUrl(urls, keys, fields.get(3));
             }
         }
-        return new CsvCatalog(csv, urls);
+        return new CsvCatalog(csv, urls, keys);
     }
 
     boolean containsFileUrl(String fileUrl) {
-        return existingFileUrls.contains(fileUrl);
+        return existingFileUrls.contains(fileUrl)
+                || GitHubFileKey.fromBlobUrl(fileUrl)
+                .map(existingFileKeys::contains)
+                .orElse(false);
     }
 
     void append(ModelRecord record) throws IOException {
@@ -53,7 +59,12 @@ final class CsvCatalog {
             writer.write(toCsvLine(record));
             writer.newLine();
         }
-        existingFileUrls.add(record.fullFileUrl());
+        addExistingUrl(existingFileUrls, existingFileKeys, record.fullFileUrl());
+    }
+
+    private static void addExistingUrl(Set<String> urls, Set<GitHubFileKey> keys, String url) {
+        urls.add(url);
+        GitHubFileKey.fromBlobUrl(url).ifPresent(keys::add);
     }
 
     static String toCsvLine(ModelRecord record) {

@@ -40,6 +40,18 @@ class CollectorStatsTest {
     }
 
     @Test
+    void directSearchResultAcceptanceIncreasesMatchingAndNewlyAcceptedCounts() {
+        CollectorStats stats = new CollectorStats();
+
+        stats.recordNewlyAcceptedModelFile();
+
+        CollectorStats.Snapshot snapshot = stats.snapshot();
+        assertEquals(1, snapshot.matchingModelFiles());
+        assertEquals(1, snapshot.newlyAcceptedModelFiles());
+        assertEquals(0, snapshot.alreadyRecordedModelFiles());
+    }
+
+    @Test
     void excludedRepositoryIncreasesScannedAndExcludedCounts() {
         CollectorStats stats = new CollectorStats();
 

@@ -20,6 +20,11 @@ final class CollectorStats {
         excludedRepositories++;
     }
 
+    void recordNewlyAcceptedModelFile() {
+        matchingModelFiles++;
+        newlyAcceptedModelFiles++;
+    }
+
     void recordRepositoryOutcome(RepositoryInspectionSummary summary) {
         matchingModelFiles += summary.newlyAccepted() + summary.alreadyRecorded();
         newlyAcceptedModelFiles += summary.newlyAccepted();

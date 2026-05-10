@@ -80,6 +80,7 @@ model_file_name,repository_name,repository_url,full_file_url,file_size,commits
 The `commits` column is the total number of commits touching that file path, not just the minimum threshold.
 
 The app records the GitHub file name in `model_file_name`. Model contents are not downloaded.
+Resume detection checks both the exact GitHub file URL and a normalized `repository + path` key, so branch and commit-SHA URLs for the same file path are treated as the same model.
 
 ### `excluded-repositories.txt`
 
@@ -135,7 +136,18 @@ Outcomes:
 
 GitHub code search is rate limited and can cap broad searches. The app starts with size ranges based on `--size-step`, then adaptively splits any range that reports at least 1,000 results until the range is below the cap or has narrowed to a single byte size. GitHub may still return incomplete or capped result sets.
 
+Search ranges use queries shaped like `extension:ecore size:X..Y`. Each code-search file result is checked directly before the repository tree is inspected, and repository tree inspection still runs once per repository to find additional default-branch models.
+
 Hub4j waits internally for some GitHub rate and abuse limits, so the app can appear quiet while an API call is waiting. The slowest step is usually counting commits for a candidate file, because the app iterates the full commit history for that path.
+
+## Audit Verification
+
+The helper script `tools/verify-missing-models.ps1` compares an audit CSV such as `out/missing-in-ecore-models.csv` against `out/ecore-models.csv` and, when `GITHUB_TOKEN` is set, verifies each missing row against GitHub.
+
+```powershell
+$env:GITHUB_TOKEN="your-token"
+.\tools\verify-missing-models.ps1
+```
 
 ## Scope
 
