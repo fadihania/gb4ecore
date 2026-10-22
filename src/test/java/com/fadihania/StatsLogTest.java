@@ -59,7 +59,9 @@ class StatsLogTest {
         assertTrue(content.contains("Bucket split: parent=10241..20480"));
         assertTrue(content.contains("children=10241..15360 and 15361..20480"));
         assertTrue(content.contains("cannot be split further by size"));
+        assertTrue(content.contains("--------------------------------------------------------------------------------"));
         assertTrue(content.contains("Final stats: matchingModelFiles=2"));
+        assertTrue(content.contains("Completed scan: discovered=0, size-qualified=0, history-qualified=0, skipped=0, skipped-repositories=0, failed=0"));
         assertTrue(content.contains("stoppedByLimit=false"));
     }
 }

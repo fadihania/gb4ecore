@@ -81,6 +81,42 @@ class CsvCatalogTest {
     }
 
     @Test
+    void findsExistingModelMetadataByExactUrl() throws Exception {
+        Path csv = tempDir.resolve("ecore-models.csv");
+        Files.writeString(csv,
+                CsvCatalog.HEADER + System.lineSeparator()
+                        + "model.ecore,owner/repo,https://github.com/owner/repo,"
+                        + "https://github.com/owner/repo/blob/main/model/example.ecore,12345,37"
+                        + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+
+        CsvCatalog catalog = CsvCatalog.open(tempDir);
+        CsvCatalog.ExistingModel model = catalog.findExistingModel(
+                "https://github.com/owner/repo/blob/main/model/example.ecore").orElseThrow();
+
+        assertEquals(12_345, model.fileSize());
+        assertEquals(37, model.totalCommits());
+    }
+
+    @Test
+    void findsExistingModelMetadataByNormalizedUrlVariant() throws Exception {
+        Path csv = tempDir.resolve("ecore-models.csv");
+        Files.writeString(csv,
+                CsvCatalog.HEADER + System.lineSeparator()
+                        + "model.ecore,owner/repo,https://github.com/owner/repo,"
+                        + "https://github.com/owner/repo/blob/main/model/example.ecore,12345,37"
+                        + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+
+        CsvCatalog catalog = CsvCatalog.open(tempDir);
+        CsvCatalog.ExistingModel model = catalog.findExistingModel(
+                "https://github.com/owner/repo/blob/d67582e93f7d3fefed1158a7d32580c2e3d745f2/model/example.ecore").orElseThrow();
+
+        assertEquals(12_345, model.fileSize());
+        assertEquals(37, model.totalCommits());
+    }
+
+    @Test
     void distinctRepositoryPathsAreNotDuplicates() throws Exception {
         Path csv = tempDir.resolve("ecore-models.csv");
         Files.writeString(csv,

@@ -67,12 +67,15 @@ final class StatsLog implements Closeable {
 
     void bucketFinished(String query, CollectorStats.Snapshot bucketStats) throws IOException {
         write("Bucket finished: query=\"" + query + "\", " + bucketStats.formatSummary());
+        write("Bucket completed scan: " + bucketStats.formatScanCounts());
     }
 
     void runFinished(CollectorStats stats, boolean stoppedByLimit) throws IOException {
         write("");
+        write("--------------------------------------------------------------------------------");
         write("Run finished: stoppedByLimit=" + stoppedByLimit);
         write("Final stats: " + stats.formatSummary());
+        write(stats.formatCompletedScan());
     }
 
     @Override

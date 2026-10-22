@@ -66,6 +66,7 @@ final class GitHubEcoreCollector {
         }
         logger.info("Collector finished. Accepted " + runState.accepted + " model(s).");
         logger.info("Final stats: " + stats.formatSummary());
+        logger.info(stats.formatCompletedScan());
     }
 
     private void processSearchRange(
@@ -153,7 +154,7 @@ final class GitHubEcoreCollector {
 
             GHRepository repository = resolveRepository(repositoryName);
             if (repository == null) {
-                stats.recordSkippedRepository();
+                stats.recordRepositoryFailure();
                 continue;
             }
             if (processSearchResultCandidate(content, repository, catalog, stats)) {
@@ -178,7 +179,7 @@ final class GitHubEcoreCollector {
                         runState.accepted,
                         stats);
             } catch (IOException e) {
-                stats.recordSkippedRepository();
+                stats.recordRepositoryFailure();
                 logger.warn("Skipping repository " + repositoryName
                         + " after inspection failed: " + e.getMessage());
                 unclassifiedRepositories.add(repositoryName, e.getMessage());
@@ -209,20 +210,35 @@ final class GitHubEcoreCollector {
         }
 
         String fileUrl = content.getHtmlUrl();
-        if (catalog.containsFileUrl(fileUrl)) {
+        stats.recordDiscoveredFile(fileUrl);
+        CsvCatalog.ExistingModel existingModel = catalog.findExistingModel(fileUrl).orElse(null);
+        if (existingModel != null) {
+            if (existingModel.fileSize() >= config.minSizeBytes()) {
+                stats.recordSizeQualifiedFile(fileUrl);
+            }
+            if (existingModel.fileSize() >= config.minSizeBytes()
+                    && existingModel.totalCommits() >= config.minCommits()) {
+                stats.recordAlreadyRecordedModelFile(fileUrl);
+            }
             logger.info("Skipping already recorded search result file: " + fileUrl);
+            return false;
+        }
+        if (catalog.containsFileUrl(fileUrl)) {
+            logger.info("Skipping already recorded search result file without readable CSV metadata: " + fileUrl);
             return false;
         }
         if (content.getSize() < config.minSizeBytes()) {
             logger.info("Skipping small search result file: " + path + " (" + content.getSize() + " bytes)");
             return false;
         }
+        stats.recordSizeQualifiedFile(fileUrl);
 
         logger.info("Inspecting search result candidate " + path);
         int totalCommits;
         try {
             totalCommits = countCommits(repository, path);
         } catch (IOException | RuntimeException e) {
+            stats.recordFileFailure(fileUrl);
             logger.warn("Skipping search result candidate after commit count failed for "
                     + path + ": " + e.getMessage());
             return false;
@@ -241,7 +257,7 @@ final class GitHubEcoreCollector {
                 content.getSize(),
                 totalCommits);
         catalog.append(record);
-        stats.recordNewlyAcceptedModelFile();
+        stats.recordNewlyAcceptedModelFile(fileUrl);
         logger.info("Recorded matching search result model " + path + " from "
                 + repository.getFullName() + " (" + totalCommits + " total file commits).");
         return true;
@@ -284,6 +300,7 @@ final class GitHubEcoreCollector {
 
         GHTree tree = loadRepositoryTree(repository, defaultBranch, summary);
         if (tree == null) {
+            stats.recordFailure();
             recordUnclassifiedRepository(unclassifiedRepositories, repositoryName, summary);
             logRepositoryOutcome(summary);
             stats.recordRepositoryOutcome(summary);
@@ -303,9 +320,27 @@ final class GitHubEcoreCollector {
 
             summary.foundEcoreFile();
             String fileUrl = fileHtmlUrl(repository, defaultBranch, entry.getPath());
+            stats.recordDiscoveredFile(fileUrl);
+            CsvCatalog.ExistingModel existingModel = catalog.findExistingModel(fileUrl).orElse(null);
+            if (existingModel != null) {
+                if (existingModel.fileSize() >= config.minSizeBytes()) {
+                    stats.recordSizeQualifiedFile(fileUrl);
+                }
+                if (existingModel.fileSize() >= config.minSizeBytes()
+                        && existingModel.totalCommits() >= config.minCommits()) {
+                    stats.recordHistoryQualifiedFile(fileUrl);
+                    summary.recordAlreadyRecorded();
+                } else if (existingModel.fileSize() < config.minSizeBytes()) {
+                    summary.recordSkippedSmall();
+                } else {
+                    summary.recordSkippedFewCommits();
+                }
+                logger.info("Skipping already recorded matching file: " + fileUrl);
+                continue;
+            }
             if (catalog.containsFileUrl(fileUrl)) {
                 summary.recordAlreadyRecorded();
-                logger.info("Skipping already recorded matching file: " + fileUrl);
+                logger.info("Skipping already recorded matching file without readable CSV metadata: " + fileUrl);
                 continue;
             }
             if (entry.getSize() < config.minSizeBytes()) {
@@ -313,6 +348,7 @@ final class GitHubEcoreCollector {
                 logger.info("Skipping small file: " + entry.getPath() + " (" + entry.getSize() + " bytes)");
                 continue;
             }
+            stats.recordSizeQualifiedFile(fileUrl);
             if (limitReached(acceptedBeforeRepository + accepted)) {
                 summary.markUnclassified("run stopped after reaching --limit before repository inspection completed");
                 recordUnclassifiedRepository(unclassifiedRepositories, repositoryName, summary);
@@ -326,6 +362,7 @@ final class GitHubEcoreCollector {
             try {
                 totalCommits = countCommits(repository, entry.getPath());
             } catch (IOException | RuntimeException e) {
+                stats.recordFileFailure(fileUrl);
                 summary.markUnclassified(commitCountFailureReason(entry.getPath(), e));
                 logger.warn("Failed to count commits for " + entry.getPath()
                         + "; repository will be marked unclassified: " + e.getMessage());
@@ -340,6 +377,7 @@ final class GitHubEcoreCollector {
                         + " file commit(s), minimum required is " + config.minCommits() + ".");
                 continue;
             }
+            stats.recordHistoryQualifiedFile(fileUrl);
 
             GHContent content = repository.getFileContent(entry.getPath());
             ModelRecord record = new ModelRecord(

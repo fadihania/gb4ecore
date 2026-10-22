@@ -105,6 +105,14 @@ Contains run-level diagnostics and is overwritten each time the app starts. It r
 
 Final stats include matching model files found during the run. This count includes both newly recorded models and matching files already present in `ecore-models.csv`.
 
+The final console output and `stats.log` also include a compact scan summary:
+
+```text
+Completed scan: discovered=9700, size-qualified=1279, history-qualified=243, skipped=9455, skipped-repositories=1884, failed=3
+```
+
+`discovered` counts unique `.ecore` files encountered during the run, including files already present in `ecore-models.csv` when the current scan sees them again. `size-qualified` and `history-qualified` count unique files that pass the configured size and file-history thresholds. `skipped` is the number of discovered files that did not history-qualify, excluding file-level failures. `failed` counts file or repository failures that prevented classification.
+
 ## Resume Behavior
 
 The app is resumable:
